@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: jinli-device-plugin
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: jinli-device-plugin
+  template:
+    metadata:
+      labels:
+        name: jinli-device-plugin
+    spec:
+      containers:
+      - image: jinli.harbor.com/jinlik8s-device/jinli-device-plugin-:v1.0.1
+        name: device
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: kubelet
+          mountPath: /var/lib/kubelet/device-plugins
+        command:
+        - "/app/device-plugin"
+      volumes:
+      - name: kubelet
+        hostPath:
+          path: /var/lib/kubelet/device-plugins
