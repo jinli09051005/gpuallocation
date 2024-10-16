@@ -34,6 +34,11 @@ func (l *PluginLister) NewPlugin(resName string) dpm.PluginInterface {
 		klog.Errorf("failed to create nvmlmanager,err: %v", err)
 		return nil
 	}
+	err = nvmlmgr.CreateCDISpecFile()
+	if err != nil {
+		klog.Errorf("failed to create cdispce,err: %v", err)
+		return nil
+	}
 	return &Plugin{
 		nvmlmgr: *nvmlmgr,
 		stop:    make(chan interface{}),

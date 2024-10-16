@@ -10,6 +10,7 @@ import (
 	"jinli.io/device-plugin/pkg/manager"
 	"k8s.io/klog/v2"
 	pluginapi "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
+	cdiapi "tags.cncf.io/container-device-interface/pkg/cdi"
 )
 
 const (
@@ -84,11 +85,40 @@ func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) 
 	responses := pluginapi.AllocateResponse{}
 	for _, req := range reqs.ContainerRequests {
 		// req代表单个容器，要处理单个pod所有容器
-		response := pluginapi.ContainerAllocateResponse{
-			Envs: map[string]string{
-				"NVIDIA_VISIBLE_DEVICES": strings.Join(req.DevicesIDs, ","),
-			},
+		response := pluginapi.ContainerAllocateResponse{}
+		req.DevicesIDs = getuuids(req.DevicesIDs)
+		// 环境变量形式
+		response.Envs = map[string]string{
+			"NVIDIA_VISIBLE_DEVICES": strings.Join(req.DevicesIDs, ","),
 		}
+
+		// 注解形式
+		// response.Annotations["cdi.k8s.io/nvidia-device-plugin_uuid值"] = "nvidia.com/gpu=uuid,nvidia.com/gds=all,nvidia.com/mofed=all"
+		// response.Envs["NVIDIA_GDS"] = "enabled"
+		// response.Envs["NVIDIA_MOFED"] = "enabled"
+		responseID := uuid.New().String()
+		key := "cdi.k8s.io/nvidia-device-plugin_" + responseID
+		values := []string{}
+		for _, id := range req.DevicesIDs {
+			v := "nvidia.com/gpu=" + id
+			values = append(values, v)
+		}
+		valueStr, err := cdiapi.AnnotationValue(values)
+		if err != nil {
+			return nil, fmt.Errorf("CDI annotation failed: %w", err)
+		}
+		response.Annotations = map[string]string{
+			key: valueStr,
+		}
+
+		// CDIDevice形式
+		cdidevices := []*pluginapi.CDIDevice{}
+		for _, id := range req.DevicesIDs {
+			cdidevices = append(cdidevices, &pluginapi.CDIDevice{
+				Name: fmt.Sprintf("nvidia.com/gpu=%s", id),
+			})
+		}
+		response.CDIDevices = cdidevices
 
 		for _, id := range req.DevicesIDs {
 			if !deviceExists(p.nvmlmgr.Devs, id) {
@@ -103,11 +133,12 @@ func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) 
 		}
 		//HAMI-core中CUDA_DEVICE_MEMORY_LIMIT_ID（限制容器指定设备显存）会覆盖CUDA_DEVICE_MEMORY_LIMIT（限制容器所有设备显存）
 		response.Envs["CUDA_DEVICE_MEMORY_LIMIT_0"] = "20m"
+		response.Envs["CUDA_DEVICE_MEMORY_LIMIT"] = "200m"
 		response.Envs["CUDA_DEVICE_SM_LIMIT"] = "50"
 		response.Envs["CUDA_DEVICE_MEMORY_SHARED_CACHE"] = fmt.Sprintf("%s/%v.cache", hostPath, uuid.New().String())
 		response.Envs["CUDA_OVERSUBSCRIBE"] = "true"
 
-		cacheFileHostDirectory := "/usr/local/vgpu/containers/poduid_containername"
+		cacheFileHostDirectory := "/usr/local/vgpu/containers/{poduid_containername}"
 		os.RemoveAll(cacheFileHostDirectory)
 
 		os.MkdirAll(cacheFileHostDirectory, 0777)
@@ -148,4 +179,19 @@ func deviceExists(devs []*manager.Device, id string) bool {
 		return true
 	}
 	return false
+}
+
+// 兼容time slice,形成的副版本号
+// 主版本号::副版本号
+func getuuids(all []string) []string {
+	var uuids []string
+	for _, v := range all {
+		split := strings.SplitN(string(v), "::", 2)
+		if len(split) != 2 {
+			uuids = append(uuids, v)
+		} else {
+			uuids = append(uuids, split[0])
+		}
+	}
+	return uuids
 }
