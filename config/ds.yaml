@@ -20,7 +20,7 @@ spec:
         - name: kubelet
           mountPath: /var/lib/kubelet/device-plugins
         - name: vgpu
-          mountPath: /uar/local/jinli
+          mountPath: /usr/local/jinli
         - name: tmp
           mountPath: /tmp
         - name: localtime
