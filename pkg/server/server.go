@@ -4,18 +4,14 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/google/uuid"
+	"github.com/kubevirt/device-plugin-manager/pkg/dpm"
 	"jinli.io/device-plugin/pkg/manager"
+	"jinli.io/device-plugin/pkg/util"
 	"k8s.io/klog/v2"
 	pluginapi "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 	cdiapi "tags.cncf.io/container-device-interface/pkg/cdi"
-)
-
-const (
-	resnamespace = "jinli.io"
-	resname      = "gpu"
 )
 
 type Plugin struct {
@@ -23,6 +19,10 @@ type Plugin struct {
 	health  chan *pluginapi.Device
 	stop    chan interface{}
 }
+
+var _ dpm.PluginInterfaceStart = &Plugin{}
+var _ dpm.PluginInterfaceStop = &Plugin{}
+var _ dpm.PluginInterface = &Plugin{}
 
 // manager自动调用
 func (p *Plugin) Start() error {
@@ -62,6 +62,7 @@ func (p *Plugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListA
 	for _, v := range p.nvmlmgr.Devs {
 		devices = append(devices, &v.Device)
 	}
+
 	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: devices}); err != nil {
 		return err
 	}
@@ -81,21 +82,25 @@ func (p *Plugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListA
 }
 
 func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	hostPath := "/usr/local/vgpu"
-	responses := pluginapi.AllocateResponse{}
-	for _, req := range reqs.ContainerRequests {
-		// req代表单个容器，要处理单个pod所有容器
-		response := pluginapi.ContainerAllocateResponse{}
-		req.DevicesIDs = getuuids(req.DevicesIDs)
-		// 环境变量形式
-		response.Envs = map[string]string{
-			"NVIDIA_VISIBLE_DEVICES": strings.Join(req.DevicesIDs, ","),
-		}
+	nodename := os.Getenv("NODE_NAME")
+	current, err := util.GetCurrentPod(ctx, nodename)
+	if err != nil {
+		return &pluginapi.AllocateResponse{}, err
+	}
 
-		// 注解形式
+	responses := pluginapi.AllocateResponse{}
+	for idx, req := range reqs.ContainerRequests {
+		// req代表单个容器，要处理pod中每个容器
+		response := pluginapi.ContainerAllocateResponse{}
+		// 将vgpu ID -> physical gpu ID
+		req.DevicesIDs = util.GetUuids(req.DevicesIDs)
+		// 1、环境变量形式，非CDI模式，需要nvidia-container-runtime
+		// response.Envs = map[string]string{
+		// 	"NVIDIA_VISIBLE_DEVICES": strings.Join(req.DevicesIDs, ","),
+		// }
+
+		// 2、注解形式, CDI模式
 		// response.Annotations["cdi.k8s.io/nvidia-device-plugin_uuid值"] = "nvidia.com/gpu=uuid,nvidia.com/gds=all,nvidia.com/mofed=all"
-		// response.Envs["NVIDIA_GDS"] = "enabled"
-		// response.Envs["NVIDIA_MOFED"] = "enabled"
 		responseID := uuid.New().String()
 		key := "cdi.k8s.io/nvidia-device-plugin_" + responseID
 		values := []string{}
@@ -111,87 +116,27 @@ func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) 
 			key: valueStr,
 		}
 
-		// CDIDevice形式
-		cdidevices := []*pluginapi.CDIDevice{}
-		for _, id := range req.DevicesIDs {
-			cdidevices = append(cdidevices, &pluginapi.CDIDevice{
-				Name: fmt.Sprintf("nvidia.com/gpu=%s", id),
-			})
-		}
-		response.CDIDevices = cdidevices
+		// 3、CDIDevice形式，CDI模式
+		// cdidevices := []*pluginapi.CDIDevice{}
+		// for _, id := range req.DevicesIDs {
+		// 	cdidevices = append(cdidevices, &pluginapi.CDIDevice{
+		// 		Name: fmt.Sprintf("nvidia.com/gpu=%s", id),
+		// 	})
+		// }
+		// response.CDIDevices = cdidevices
 
 		for _, id := range req.DevicesIDs {
-			if !deviceExists(p.nvmlmgr.Devs, id) {
+			if !manager.DeviceExists(p.nvmlmgr.Devs, id) {
 				return nil, fmt.Errorf("error to get allocate response: unknown device: %s", id)
 			}
 		}
 
 		// gpu资源限制
-		for i := range req.DevicesIDs {
-			memKey := fmt.Sprintf("CUDA_DEVICE_MEMORY_LIMIT_%v", i)
-			response.Envs[memKey] = "20m"
-		}
-		//HAMI-core中CUDA_DEVICE_MEMORY_LIMIT_ID（限制容器指定设备显存）会覆盖CUDA_DEVICE_MEMORY_LIMIT（限制容器所有设备显存）
-		response.Envs["CUDA_DEVICE_MEMORY_LIMIT_0"] = "20m"
-		response.Envs["CUDA_DEVICE_MEMORY_LIMIT"] = "200m"
-		response.Envs["CUDA_DEVICE_SM_LIMIT"] = "50"
-		response.Envs["CUDA_DEVICE_MEMORY_SHARED_CACHE"] = fmt.Sprintf("%s/%v.cache", hostPath, uuid.New().String())
-		response.Envs["CUDA_OVERSUBSCRIBE"] = "true"
-
-		cacheFileHostDirectory := "/usr/local/vgpu/containers/{poduid_containername}"
-		os.RemoveAll(cacheFileHostDirectory)
-
-		os.MkdirAll(cacheFileHostDirectory, 0777)
-		os.Chmod(cacheFileHostDirectory, 0777)
 		os.MkdirAll("/tmp/vgpulock", 0777)
 		os.Chmod("/tmp/vgpulock", 0777)
-
-		response.Mounts = append(response.Mounts,
-			&pluginapi.Mount{
-				ContainerPath: fmt.Sprintf("%s/libvgpu.so", hostPath),
-				HostPath:      hostPath + "/libvgpu.so",
-				ReadOnly:      true},
-			&pluginapi.Mount{
-				ContainerPath: hostPath,
-				HostPath:      cacheFileHostDirectory,
-				ReadOnly:      false},
-			&pluginapi.Mount{
-				ContainerPath: "/tmp/vgpulock",
-				HostPath:      "/tmp/vgpulock",
-				ReadOnly:      false},
-			&pluginapi.Mount{
-				ContainerPath: "/etc/ld.so.preload",
-				HostPath:      hostPath + "/ld.so.preload",
-				ReadOnly:      true},
-		)
-
+		util.LimitGPUMemAndCores(&response, current, int32(idx))
 		responses.ContainerResponses = append(responses.ContainerResponses, &response)
 	}
 
 	return &responses, nil
-}
-
-func deviceExists(devs []*manager.Device, id string) bool {
-	for _, v := range devs {
-		if v.ID != id {
-			continue
-		}
-		return true
-	}
-	return false
-}
-
-// 兼容time slice,形成的副版本号
-// 主版本号::副版本号
-func getuuids(all []string) []string {
-	var uuids []string
-	for _, v := range all {
-		split := strings.SplitN(string(v), "::", 2)
-		if len(split) != 2 {
-			uuids = append(uuids, v)
-		} else {
-			uuids = append(uuids, split[0])
-		}
-	}
-	return uuids
 }

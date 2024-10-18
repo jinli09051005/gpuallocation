@@ -2,8 +2,10 @@ package manager
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
+	"jinli.io/device-plugin/pkg/util"
 	"k8s.io/klog/v2"
 	pluginapi "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 )
@@ -16,7 +18,29 @@ func (mgr *NvmlManager) CheckHealth(stop <-chan interface{}, unhealthy chan<- *p
 	return mgr.checkHealth(stop, devices, unhealthy)
 }
 
-func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, devices []*pluginapi.Device, unhealthy chan<- *pluginapi.Device) error {
+func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, vDevices []*pluginapi.Device, unhealthy chan<- *pluginapi.Device) error {
+	var devices []*pluginapi.Device
+	var vuuids []string
+	for _, v := range vDevices {
+		vuuids = append(vuuids, v.ID)
+	}
+	uuids := util.GetUuids(vuuids)
+	// 只要找到一个vDevice的拓扑信息，就可以获得对应的Device的拓扑信息
+	for _, v := range uuids {
+		for _, w := range vDevices {
+			if !strings.Contains(w.ID, v) {
+				continue
+			}
+			device := pluginapi.Device{
+				ID:       v,
+				Health:   w.Health,
+				Topology: w.Topology,
+			}
+			devices = append(devices, &device)
+			break
+		}
+	}
+
 	applicationErrorXids := []uint64{
 		13, // Graphics Engine Exception
 		31, // GPU memory page fault
@@ -38,10 +62,6 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, devices []*pluginap
 		_ = eventSet.Free()
 	}()
 
-	for _, additionalXid := range getAdditionalXids("xids") {
-		skippedXids[additionalXid] = true
-	}
-
 	parentToDeviceMap := make(map[string]*pluginapi.Device)
 
 	eventMask := uint64(nvml.EventTypeXidCriticalError | nvml.EventTypeDoubleBitEccError | nvml.EventTypeSingleBitEccError)
@@ -52,14 +72,24 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, devices []*pluginap
 		gpu, ret := mgr.nvml.DeviceGetHandleByUUID(uuid)
 		if ret != nvml.SUCCESS {
 			klog.Infof("unable to get device handle from UUID: %v; marking it as unhealthy", ret)
-			unhealthy <- d
+			// d要转换为所有包含Device ID的vDevice
+			// 用For循环发送出去
+			for _, v := range vDevices {
+				if d.ID == v.ID {
+					unhealthy <- v
+				}
+			}
 			continue
 		}
 
 		supportedEvents, ret := gpu.GetSupportedEventTypes()
 		if ret != nvml.SUCCESS {
 			klog.Infof("unable to determine the supported events for %v: %v; marking it as unhealthy", d.ID, ret)
-			unhealthy <- d
+			for _, v := range vDevices {
+				if d.ID == v.ID {
+					unhealthy <- v
+				}
+			}
 			continue
 		}
 
@@ -69,7 +99,11 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, devices []*pluginap
 		}
 		if ret != nvml.SUCCESS {
 			klog.Infof("Marking device %v as unhealthy: %v", d.ID, ret)
-			unhealthy <- d
+			for _, v := range vDevices {
+				if d.ID == v.ID {
+					unhealthy <- v
+				}
+			}
 		}
 	}
 
@@ -87,7 +121,11 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, devices []*pluginap
 		if ret != nvml.SUCCESS {
 			klog.Infof("Error waiting for event: %v; Marking all devices as unhealthy", ret)
 			for _, d := range devices {
-				unhealthy <- d
+				for _, v := range vDevices {
+					if d.ID == v.ID {
+						unhealthy <- v
+					}
+				}
 			}
 			continue
 		}
@@ -107,7 +145,11 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, devices []*pluginap
 		if ret != nvml.SUCCESS {
 			klog.Infof("Failed to determine uuid for event %v: %v; Marking all devices as unhealthy.", e, ret)
 			for _, d := range devices {
-				unhealthy <- d
+				for _, v := range vDevices {
+					if d.ID == v.ID {
+						unhealthy <- v
+					}
+				}
 			}
 			continue
 		}
@@ -119,6 +161,10 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, devices []*pluginap
 		}
 
 		klog.Infof("XidCriticalError: Xid=%d on Device=%s; marking device as unhealthy.", e.EventData, d.ID)
-		unhealthy <- d
+		for _, v := range vDevices {
+			if d.ID == v.ID {
+				unhealthy <- v
+			}
+		}
 	}
 }

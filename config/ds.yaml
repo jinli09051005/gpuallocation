@@ -19,6 +19,12 @@ spec:
         volumeMounts:
         - name: kubelet
           mountPath: /var/lib/kubelet/device-plugins
+        - name: vgpu
+          mountPath: /uar/local/jinli
+        - name: tmp
+          mountPath: /tmp
+        - name: localtime
+          mountPath: /etc/localtime
         command:
         - "/app/device-plugin"
         env:
@@ -32,3 +38,12 @@ spec:
       - name: kubelet
         hostPath:
           path: /var/lib/kubelet/device-plugins
+      - name: vgpu
+        hostPath:
+          path: /usr/local/jinli
+      - name: tmp
+        hostPath:
+          path: /tmp
+      - name: localtime
+        hostPath:
+          path: /etc/localtime

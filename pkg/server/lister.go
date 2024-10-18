@@ -9,10 +9,14 @@ import (
 )
 
 type PluginLister struct {
+	// 插件名称列表,可以在同一个ResourceNamespace下创建多个设备插件
 	ResUpdateChan chan dpm.PluginNameList
 }
 
+var _ dpm.ListerInterface = &PluginLister{}
+
 func (l *PluginLister) GetResourceNamespace() string {
+	// resnamespace -> vendor
 	return resnamespace
 }
 

@@ -1,9 +1,12 @@
 package manager
 
 import (
+	"context"
 	"fmt"
+	"os"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
+	"jinli.io/device-plugin/pkg/util"
 	"k8s.io/klog/v2"
 )
 
@@ -25,9 +28,17 @@ func NewNvmlManagers(nvmllib nvml.Interface) (*NvmlManager, error) {
 	}()
 
 	// 获取设备信息
-	devs, err := getDevices(nvmllib)
+	devs, gpumems, err := getVDevices(nvmllib)
 	if err != nil {
 		return nil, fmt.Errorf("error to get devices: %v", err)
+	}
+
+	// 添加GPU显存注解
+	// jinli.io/gpumems=uuid1-1024,uuid2-2048
+	nodename := os.Getenv("NODE_NAME")
+	err = util.UpdateCurrentNode(context.TODO(), nodename, gpumems)
+	if err != nil {
+		return nil, fmt.Errorf("error to add gpumemes annotations: %v", err)
 	}
 
 	mgr := &NvmlManager{

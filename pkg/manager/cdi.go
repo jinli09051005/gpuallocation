@@ -16,6 +16,7 @@ const (
 	cdiRoot = "/var/run/cdi"
 )
 
+// 物理GPU CDI
 func (mgr *NvmlManager) CreateCDISpecFile() error {
 	mgrlog := logrus.StandardLogger()
 	driverRoot := "/"

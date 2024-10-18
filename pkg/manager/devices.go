@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
+	"jinli.io/device-plugin/pkg/util"
 	pluginapi "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 )
 
@@ -20,42 +21,66 @@ type Device struct {
 }
 
 // nvidia.go
-func getDevices(nvmllib nvml.Interface) ([]*Device, error) {
-	count, ret := nvmllib.DeviceGetCount()
-	if ret != nvml.SUCCESS {
-		return nil, fmt.Errorf("error getting device count: %v", ret)
+// 100vGPU
+func getVDevices(nvmllib nvml.Interface) ([]*Device, string, error) {
+	devices, gpumemes, err := getPDevices(nvmllib)
+	if err != nil {
+		return nil, "", err
 	}
 
+	var vDevices []*Device
+	physicalDevNum := len(devices)
+	for i := 0; i < 100; i++ {
+		index := i
+		if i >= physicalDevNum {
+			index = i % physicalDevNum
+		}
+		vDevcice := devices[index]
+		vDevcice.ID = fmt.Sprintf("%s::%d", vDevcice.ID, i)
+		vDevices = append(vDevices, vDevcice)
+	}
+	return vDevices, gpumemes, nil
+}
+
+// Physical GPU
+func getPDevices(nvmllib nvml.Interface) ([]*Device, string, error) {
 	var devs []*Device
+	count, ret := nvmllib.DeviceGetCount()
+	if ret != nvml.SUCCESS {
+		return nil, "", fmt.Errorf("error getting device count: %v", ret)
+	}
+
+	gpumemes, sep := "", ""
 	for i := 0; i < count; i++ {
 		var dev Device
 
 		device, ret := nvmllib.DeviceGetHandleByIndex(i)
 		if ret != nvml.SUCCESS {
-			return nil, fmt.Errorf("error getting device handle for index '%v': %v", i, ret)
+			return nil, "", fmt.Errorf("error getting device handle for index '%v': %v", i, ret)
 		}
 
 		index := fmt.Sprintf("%v", i)
 
 		paths, err := getPaths(device)
 		if err != nil {
-			return nil, fmt.Errorf("error getting device paths: %v", err)
+			return nil, "", fmt.Errorf("error getting device paths: %v", err)
 		}
 
 		computeCapability, err := getComputeCapability(device)
 		if err != nil {
-			return nil, fmt.Errorf("error getting device compute capability: %w", err)
+			return nil, "", fmt.Errorf("error getting device compute capability: %w", err)
 		}
 
 		totalMemory, err := getTotalMemery(device)
 		if err != nil {
-			return nil, fmt.Errorf("error getting device memory: %w", err)
+			return nil, "", fmt.Errorf("error getting device memory: %w", err)
 		}
 
 		uuid, ret := device.GetUUID()
 		if ret != nvml.SUCCESS {
-			return nil, fmt.Errorf("error getting device uuid for index '%v': %v", i, ret)
+			return nil, "", fmt.Errorf("error getting device uuid for index '%v': %v", i, ret)
 		}
+		gpumemes += sep + uuid + "-" + fmt.Sprintf("%v", totalMemory)
 
 		pluginapiDevs := pluginapi.Device{
 			ID:     uuid,
@@ -64,7 +89,7 @@ func getDevices(nvmllib nvml.Interface) ([]*Device, error) {
 
 		hasNuma, numa, err := getNumaNode(device)
 		if err != nil {
-			return nil, fmt.Errorf("error getting device NUMA node: %v", err)
+			return nil, "", fmt.Errorf("error getting device NUMA node: %v", err)
 		}
 		if hasNuma {
 			pluginapiDevs.Topology = &pluginapi.TopologyInfo{
@@ -84,7 +109,7 @@ func getDevices(nvmllib nvml.Interface) ([]*Device, error) {
 		devs = append(devs, &dev)
 	}
 
-	return devs, nil
+	return devs, gpumemes, nil
 }
 
 func getPaths(device nvml.Device) ([]string, error) {
@@ -120,7 +145,7 @@ func getNumaNode(device nvml.Device) (bool, int, error) {
 	}
 
 	// Discard leading zeros.
-	busID := strings.ToLower(strings.TrimPrefix(int8Slice(info.BusId[:]).String(), "0000"))
+	busID := strings.ToLower(strings.TrimPrefix(util.Int8SliceToString(info.BusId[:]), "0000"))
 
 	b, err := os.ReadFile(fmt.Sprintf("/sys/bus/pci/devices/%s/numa_node", busID))
 	if err != nil {
@@ -137,4 +162,14 @@ func getNumaNode(device nvml.Device) (bool, int, error) {
 	}
 
 	return true, node, nil
+}
+
+func DeviceExists(devs []*Device, id string) bool {
+	for _, v := range devs {
+		if v.ID != id {
+			continue
+		}
+		return true
+	}
+	return false
 }
