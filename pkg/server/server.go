@@ -125,6 +125,7 @@ func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) 
 		// }
 		// response.CDIDevices = cdidevices
 
+		// 判断请求的ID是否有效
 		for _, id := range req.DevicesIDs {
 			if !manager.DeviceExists(p.nvmlmgr.Devs, id) {
 				return nil, fmt.Errorf("error to get allocate response: unknown device: %s", id)
@@ -135,8 +136,14 @@ func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) 
 		os.MkdirAll("/tmp/vgpulock", 0777)
 		os.Chmod("/tmp/vgpulock", 0777)
 		util.LimitGPUMemAndCores(&response, current, int32(idx))
+
 		responses.ContainerResponses = append(responses.ContainerResponses, &response)
 	}
 
+	// 更新Pod分配状态
+	err = util.UpdateCurrentPod(ctx, current.Name, current.Namespace)
+	if err != nil {
+		return &pluginapi.AllocateResponse{}, fmt.Errorf("error to add allocateStatus annotations: %v", err)
+	}
 	return &responses, nil
 }

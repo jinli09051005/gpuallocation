@@ -32,6 +32,7 @@ func UpdateCurrentNode(ctx context.Context, nodeName, gpumemes string) error {
 	return nil
 }
 
+// 获取处于allocating状态Pod
 func GetCurrentPod(ctx context.Context, nodeName string) (*corev1.Pod, error) {
 	selector := fmt.Sprintf("spec.nodeName=%s", nodeName)
 	podListOptions := metav1.ListOptions{
@@ -56,6 +57,29 @@ func GetCurrentPod(ctx context.Context, nodeName string) (*corev1.Pod, error) {
 		}
 	}
 	return nil, fmt.Errorf("no binding pod found on node %s", nodeName)
+}
+
+// 更新pod分配状态
+func UpdateCurrentPod(ctx context.Context, podName, podNs string) error {
+	k8sClient := getClient()
+	pod, err := k8sClient.CoreV1().Pods(podNs).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+
+	pod.Annotations["AllocateStatus"] = "allocated"
+
+	_, err = k8sClient.CoreV1().Pods(podNs).Update(context.TODO(), pod, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	} else {
+		klog.Infoln("Pod annotations updated successfully.")
+	}
+	return nil
 }
 
 func getClient() kubernetes.Interface {
