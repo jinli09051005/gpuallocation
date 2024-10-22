@@ -9,6 +9,7 @@ import (
 	"github.com/kubevirt/device-plugin-manager/pkg/dpm"
 	"jinli.io/device-plugin/pkg/manager"
 	"jinli.io/device-plugin/pkg/util"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
 	pluginapi "k8s.io/kubelet/pkg/apis/deviceplugin/v1beta1"
 	cdiapi "tags.cncf.io/container-device-interface/pkg/cdi"
@@ -137,11 +138,18 @@ func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) 
 		os.Chmod("/tmp/vgpulock", 0777)
 		util.LimitGPUMemAndCores(&response, current, int32(idx))
 
+		// 更新Pod环境变量
+		// env["UUID"] = "uuid1,uuid2"
+		env := corev1.EnvVar{
+			Name:  "UUID",
+			Value: valueStr,
+		}
+		current.Spec.Containers[idx].Env = append(current.Spec.Containers[idx].Env, env)
 		responses.ContainerResponses = append(responses.ContainerResponses, &response)
 	}
 
-	// 更新Pod分配状态
-	err = util.UpdateCurrentPod(ctx, current.Name, current.Namespace)
+	// 更新Pod分配状态及环境变量
+	err = util.UpdateCurrentPod(ctx, current)
 	if err != nil {
 		return &pluginapi.AllocateResponse{}, fmt.Errorf("error to add allocateStatus annotations: %v", err)
 	}
