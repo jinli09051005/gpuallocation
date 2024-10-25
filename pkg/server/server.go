@@ -140,9 +140,14 @@ func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) 
 
 		// 更新Pod环境变量
 		// env["UUID"] = "uuid1,uuid2"
+		uuids, sep := "", ""
+		for _, v := range req.DevicesIDs {
+			uuids += sep + v
+			sep = ","
+		}
 		env := corev1.EnvVar{
 			Name:  "UUID",
-			Value: valueStr,
+			Value: uuids,
 		}
 		current.Spec.Containers[idx].Env = append(current.Spec.Containers[idx].Env, env)
 		responses.ContainerResponses = append(responses.ContainerResponses, &response)
