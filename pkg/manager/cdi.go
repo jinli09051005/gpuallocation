@@ -25,7 +25,7 @@ func (mgr *NvmlManager) CreateCDISpecFile() error {
 	if err != nil {
 		return err
 	}
-	vendor := "nvidia.com"
+	vendor := "jinli.io"
 	cdilibs := make(map[string]nvcdi.Interface)
 	cdilibs["gpu"], err = nvcdi.New(
 		nvcdi.WithLogger(mgrlog),
