@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: jinli-gpu
+spec:
+  schedulerName: jinli-scheduler
+  containers:
+  - name: gpu-container
+    image: registry.cn-hangzhou.aliyuncs.com/jinli09051005/gpu:cuda-12.4.1-devel-ubuntu22.04
+    env:
+    - name: GPUCORES
+      value: 20
+    - name: GPUMEM
+      value: 200
+    resources:
+      limits:
+        jinli.io/gpu: 1
+command: ["sh", "-c", "tail -f /dev/null"]
