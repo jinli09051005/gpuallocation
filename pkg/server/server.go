@@ -103,7 +103,7 @@ func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) 
 		// 2、注解形式, CDI模式
 		// response.Annotations["cdi.k8s.io/nvidia-device-plugin_uuid值"] = "jinli.io/gpu=uuid,jinli.io/gds=all,jinli.io/mofed=all"
 		responseID := uuid.New().String()
-		key := "cdi.k8s.io/nvidia-device-plugin_" + responseID
+		key := "cdi.k8s.io/jinli-device-plugin_" + responseID
 		values := []string{}
 		for _, id := range req.DevicesIDs {
 			v := "jinli.io/gpu=" + id
