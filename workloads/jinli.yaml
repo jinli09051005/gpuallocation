@@ -6,13 +6,15 @@ spec:
   schedulerName: jinli-scheduler
   containers:
   - name: gpu-container
-    image: registry.cn-hangzhou.aliyuncs.com/jinli09051005/gpu:cuda-12.4.1-devel-ubuntu22.04
+    image: jinli.harbor.com/jinlik8s-device/app:v1.2.1
+    command: ["sh", "-c", "tail -f /dev/null"]
     env:
     - name: GPUCORES
       value: 20
     - name: GPUMEM
       value: 200
+    - name: THRESHOLD
+      value: 1e-6
     resources:
       limits:
         jinli.io/gpu: 1
-command: ["sh", "-c", "tail -f /dev/null"]
