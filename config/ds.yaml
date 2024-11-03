@@ -12,8 +12,9 @@ spec:
       labels:
         name: jinli-device-plugin
     spec:
+      runtimeClassName: nvidia
       containers:
-      - image: jinli.harbor.com/jinlik8s-device/jinli-device-plugin:v1.0.1
+      - image: jinli.harbor.com/jinlik8s-device/jinli-device-plugin:v1.2.1
         name: device
         imagePullPolicy: IfNotPresent
         volumeMounts:
@@ -31,9 +32,9 @@ spec:
         - name: NODE_NAME
           valueFrom:
             fieldRef:
-            fieldPath: spec.nodeName
-        - name: NVIDIA_MIG_MONITOR_DEVICES
-          value: all
+              fieldPath: spec.nodeName
+        #- name: NVIDIA_MIG_MONITOR_DEVICES
+        #  value: all
       volumes:
       - name: kubelet
         hostPath:
