@@ -35,9 +35,9 @@ func getVDevices(nvmllib nvml.Interface) ([]*Device, string, error) {
 		if i >= physicalDevNum {
 			index = i % physicalDevNum
 		}
-		vDevcice := devices[index]
+		vDevcice := *devices[index]
 		vDevcice.ID = fmt.Sprintf("%s::%d", vDevcice.ID, i)
-		vDevices = append(vDevices, vDevcice)
+		vDevices = append(vDevices, &vDevcice)
 	}
 	return vDevices, gpumemes, nil
 }
