@@ -21,13 +21,15 @@ spec:
         - name: kubelet
           mountPath: /var/lib/kubelet/device-plugins
         - name: vgpu
-          mountPath: /usr/local/jinli
+          mountPath: /srv
         - name: tmp
           mountPath: /tmp
         - name: localtime
           mountPath: /etc/localtime
         command:
-        - "/app/device-plugin"
+        - "sh"
+        - "-c"
+        - "cp -r /usr/local/jinli/* /srv && /app/device-plugin"
         env:
         - name: NODE_NAME
           valueFrom:
