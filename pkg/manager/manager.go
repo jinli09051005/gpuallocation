@@ -34,7 +34,7 @@ func NewNvmlManagers(nvmllib nvml.Interface) (*NvmlManager, error) {
 	}
 
 	// 添加GPU显存注解
-	// jinli.io/gpumems=uuid1-1024,uuid2-2048
+	// jinli.io/gpumems=uuid1_1024,uuid2_2048
 	nodename := os.Getenv("NODE_NAME")
 	err = util.UpdateCurrentNode(context.TODO(), nodename, gpumems)
 	if err != nil {

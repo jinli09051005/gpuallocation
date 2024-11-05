@@ -39,6 +39,14 @@ func getVDevices(nvmllib nvml.Interface) ([]*Device, string, error) {
 		vDevcice.ID = fmt.Sprintf("%s::%d", vDevcice.ID, i)
 		vDevices = append(vDevices, &vDevcice)
 	}
+
+	mem, err := strconv.Atoi(gpumemes)
+	if err != nil {
+		return nil, "", fmt.Errorf("can not compute gpumems, err: %v", err)
+	}
+	// bit -> k -> m
+	gpumemes = fmt.Sprintf("%d", mem/1024/1024)
+
 	return vDevices, gpumemes, nil
 }
 

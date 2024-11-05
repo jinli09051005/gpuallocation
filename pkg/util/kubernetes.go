@@ -21,7 +21,7 @@ func UpdateCurrentNode(ctx context.Context, nodeName, gpumemes string) error {
 	if node.Annotations == nil {
 		node.Annotations = make(map[string]string)
 	}
-	// jinli.io/gpumems=uuid1-1024,uuid2-2048
+	// jinli.io/gpumems=uuid1_1024,uuid2_2048
 	node.Annotations["jinli.io/gpumems"] = gpumemes
 
 	_, err = k8sClient.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})

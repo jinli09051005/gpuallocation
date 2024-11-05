@@ -10,11 +10,11 @@ spec:
     command: ["sh", "-c", "tail -f /dev/null"]
     env:
     - name: GPUCORES
-      value: 20
+      value: "20"
     - name: GPUMEM
-      value: 200
+      value: "200"
     - name: THRESHOLD
-      value: 1e-6
+      value: "1e-6"
     resources:
       limits:
         jinli.io/gpu: 1

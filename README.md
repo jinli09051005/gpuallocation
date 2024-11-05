@@ -1,3 +1,4 @@
+
 ## 项目需求
 ### 注册资源
 ```
@@ -15,7 +16,7 @@ Limits:jinli.io/gpu 整数，代表vgpu数量
 ```
 ### 管理状态
 ```
-添加显存注解jinli.io/gpumems=uuid1-1024,uuid2-2048
+添加显存注解jinli.io/gpumems=uuid1_1024,uuid2_2048
 更新分配状态注解AllocateStatus：allocated
 添加Pod中每个Container的ENV[UUID](env["UUID"] = "uuid1,uuid2")
 ```
@@ -55,11 +56,11 @@ image: jinli.harbor.com/jinlik8s-device/app:v1.2.1
     command: ["sh", "-c", "tail -f /dev/null"]
     env:
     - name: GPUCORES[ 需要20%的SM计算能力]
-      value: 20
+      value: "20"
     - name: GPUMEM[ 需要200m显存]
-      value: 200
+      value: "200"
     - name: THRESHOLD
-      value: 1e-6
+      value: "1e-6"
     resources:
       limits:
         jinli.io/gpu: 1
