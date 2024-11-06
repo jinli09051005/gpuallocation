@@ -3,6 +3,7 @@ kind: Pod
 metadata:
   name: jinli-gpu
 spec:
+  # runtimeClassName: nvidia
   schedulerName: jinli-scheduler
   containers:
   - name: gpu-container
@@ -14,7 +15,7 @@ spec:
     - name: GPUMEM
       value: "200"
     - name: THRESHOLD
-      value: "1e-6"
+      value: "1e-3"
     resources:
       limits:
         jinli.io/gpu: 1

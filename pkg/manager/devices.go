@@ -168,7 +168,7 @@ func getNumaNode(device nvml.Device) (bool, int, error) {
 
 func DeviceExists(devs []*Device, id string) bool {
 	for _, v := range devs {
-		if v.ID != id {
+		if !strings.Contains(v.ID, id) {
 			continue
 		}
 		return true

@@ -26,6 +26,8 @@ spec:
           mountPath: /tmp
         - name: localtime
           mountPath: /etc/localtime
+        - name: cdi
+          mountPath: /var/run/cdi
         command:
         - "sh"
         - "-c"
@@ -50,3 +52,6 @@ spec:
       - name: localtime
         hostPath:
           path: /etc/localtime
+      - name: cdi
+        hostPath:
+          path: /var/run/cdi

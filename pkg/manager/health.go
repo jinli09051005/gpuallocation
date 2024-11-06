@@ -54,6 +54,18 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, vDevices []*plugina
 		skippedXids[id] = true
 	}
 
+
+	ret := mgr.nvml.Init()
+	if ret != nvml.SUCCESS {
+		return fmt.Errorf("error to initialize NVML: %v", ret)
+	}
+	defer func() {
+		ret := mgr.nvml.Shutdown()
+		if ret != nvml.SUCCESS {
+			klog.Infof("Error shutting down NVML: %v", ret)
+		}
+	}()
+
 	eventSet, ret := mgr.nvml.EventSetCreate()
 	if ret != nvml.SUCCESS {
 		return fmt.Errorf("failed to create event set: %v", ret)
