@@ -2,10 +2,12 @@ package util
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -64,13 +66,16 @@ func GetCurrentPod(ctx context.Context, nodeName string) (*corev1.Pod, error) {
 func UpdateCurrentPod(ctx context.Context, pod *corev1.Pod) error {
 	k8sClient := getClient()
 
-	if pod.Annotations == nil {
-		pod.Annotations = make(map[string]string)
+	patchData := map[string]interface{}{
+		"metadata": map[string]map[string]string{
+			"annotations": {
+				"AllocateStatus": "allocated",
+			},
+		},
 	}
+	annotations, _ := json.Marshal(patchData)
 
-	pod.Annotations["AllocateStatus"] = "allocated"
-
-	_, err := k8sClient.CoreV1().Pods(pod.Namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+	_, err := k8sClient.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.StrategicMergePatchType, annotations, metav1.PatchOptions{})
 	if err != nil {
 		return err
 	} else {

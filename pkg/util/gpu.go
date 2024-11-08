@@ -16,6 +16,7 @@ func LimitGPUMemAndCores(response *pluginapi.ContainerAllocateResponse, current 
 	// 获取gpumem、gpucores
 	hostPath := "/usr/local/jinli"
 	envs := current.Spec.Containers[idx].Env
+        response.Envs = make(map[string]string)
 	for _, v := range envs {
 		if v.Name == "GPUMEM" {
 			response.Envs["CUDA_DEVICE_MEMORY_LIMIT"] = fmt.Sprintf("%vm", v.Value)
