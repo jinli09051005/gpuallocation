@@ -65,17 +65,28 @@ func GetCurrentPod(ctx context.Context, nodeName string) (*corev1.Pod, error) {
 // 更新pod分配状态
 func UpdateCurrentPod(ctx context.Context, pod *corev1.Pod) error {
 	k8sClient := getClient()
-
+	annotations := make(map[string]string)
+	// pod注解
+	// "AllocateStatus":"allocated"
+	// "name":"uuid"
+	for _, v := range pod.Spec.Containers {
+		var value string
+		for _, env := range v.Env {
+			if env.Name == "UUID" {
+				value = env.Value
+			}
+		}
+		annotations[v.Name] = value
+	}
+	annotations["AllocateStatus"] = "allocated"
 	patchData := map[string]interface{}{
 		"metadata": map[string]map[string]string{
-			"annotations": {
-				"AllocateStatus": "allocated",
-			},
+			"annotations": annotations,
 		},
 	}
-	annotations, _ := json.Marshal(patchData)
-
-	_, err := k8sClient.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.StrategicMergePatchType, annotations, metav1.PatchOptions{})
+	patchDataByte, _ := json.Marshal(patchData)
+	// 更新Pod注解
+	_, err := k8sClient.CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name, types.StrategicMergePatchType, patchDataByte, metav1.PatchOptions{})
 	if err != nil {
 		return err
 	} else {

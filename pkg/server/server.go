@@ -153,10 +153,10 @@ func (p *Plugin) Allocate(ctx context.Context, reqs *pluginapi.AllocateRequest) 
 		responses.ContainerResponses = append(responses.ContainerResponses, &response)
 	}
 
-	// 更新Pod分配状态及环境变量
+	// 更新Pod注解
 	err = util.UpdateCurrentPod(ctx, current)
 	if err != nil {
-		return &pluginapi.AllocateResponse{}, fmt.Errorf("error to add allocateStatus annotations: %v", err)
+		return &pluginapi.AllocateResponse{}, fmt.Errorf("error to update pod: %v", err)
 	}
 	return &responses, nil
 }

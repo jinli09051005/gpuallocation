@@ -13,9 +13,7 @@ spec:
     - name: GPUCORES
       value: "20"
     - name: GPUMEM
-      value: "200"
-    - name: THRESHOLD
-      value: "1e-3"
+      value: "3000"
     resources:
       limits:
         jinli.io/gpu: 1
