@@ -23,7 +23,7 @@ func main() {
 			// 设备插件名称列表
 			// socket -> jinli.io_gpu.sock
 			// 节点有gpu，注册设备插件
-			l.ResUpdateChan <- []string{"gpu"}
+			l.ResUpdateChan <- []string{server.RESNAME}
 		}
 	}()
 

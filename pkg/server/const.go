@@ -1,6 +1,6 @@
 package server
 
 const (
-	resnamespace = "jinli.io"
-	resname      = "gpu"
+	RESNAMESPACE = "jinli.io"
+	RESNAME      = "gpu"
 )

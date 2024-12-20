@@ -74,7 +74,7 @@ func (p *Plugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListA
 			return nil
 		case dev := <-p.health:
 			dev.Health = pluginapi.Unhealthy
-			klog.Infof("%s:%s device marked unhealthy", fmt.Sprintf(resnamespace+"/"+resname), dev.ID)
+			klog.Infof("%s:%s device marked unhealthy", fmt.Sprintf(RESNAMESPACE+"/"+RESNAME), dev.ID)
 			if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: devices}); err != nil {
 				return nil
 			}

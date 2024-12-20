@@ -74,6 +74,7 @@ func UpdateCurrentPod(ctx context.Context, pod *corev1.Pod) error {
 		for _, env := range v.Env {
 			if env.Name == "UUID" {
 				value = env.Value
+				break
 			}
 		}
 		annotations[v.Name] = value

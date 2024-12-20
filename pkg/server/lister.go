@@ -16,8 +16,8 @@ type PluginLister struct {
 var _ dpm.ListerInterface = &PluginLister{}
 
 func (l *PluginLister) GetResourceNamespace() string {
-	// resnamespace -> vendor
-	return resnamespace
+	// RESNAMESPACE -> vendor
+	return RESNAMESPACE
 }
 
 func (l *PluginLister) Discover(pluginListCh chan dpm.PluginNameList) {
