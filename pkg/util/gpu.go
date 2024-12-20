@@ -2,7 +2,6 @@ package util
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
@@ -16,7 +15,7 @@ func LimitGPUMemAndCores(response *pluginapi.ContainerAllocateResponse, current 
 	// 获取gpumem、gpucores
 	hostPath := "/usr/local/jinli"
 	envs := current.Spec.Containers[idx].Env
-        response.Envs = make(map[string]string)
+	response.Envs = make(map[string]string)
 	for _, v := range envs {
 		if v.Name == "GPUMEM" {
 			response.Envs["CUDA_DEVICE_MEMORY_LIMIT"] = fmt.Sprintf("%vm", v.Value)
@@ -30,9 +29,6 @@ func LimitGPUMemAndCores(response *pluginapi.ContainerAllocateResponse, current 
 	response.Envs["CUDA_OVERSUBSCRIBE"] = "true"
 
 	cacheFileHostDirectory := fmt.Sprintf("%s/containers/%s_%s", hostPath, current.UID, current.Spec.Containers[idx].Name)
-	os.RemoveAll(cacheFileHostDirectory)
-	os.MkdirAll(cacheFileHostDirectory, 0777)
-	os.Chmod(cacheFileHostDirectory, 0777)
 
 	response.Mounts = append(response.Mounts,
 		&pluginapi.Mount{
