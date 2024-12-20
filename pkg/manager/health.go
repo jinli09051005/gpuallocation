@@ -54,7 +54,6 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, vDevices []*plugina
 		skippedXids[id] = true
 	}
 
-
 	ret := mgr.nvml.Init()
 	if ret != nvml.SUCCESS {
 		return fmt.Errorf("error to initialize NVML: %v", ret)
@@ -87,7 +86,7 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, vDevices []*plugina
 			// d要转换为所有包含Device ID的vDevice
 			// 用For循环发送出去
 			for _, v := range vDevices {
-				if d.ID == v.ID {
+				if strings.Contains(v.ID, d.ID) {
 					unhealthy <- v
 				}
 			}
@@ -98,7 +97,7 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, vDevices []*plugina
 		if ret != nvml.SUCCESS {
 			klog.Infof("unable to determine the supported events for %v: %v; marking it as unhealthy", d.ID, ret)
 			for _, v := range vDevices {
-				if d.ID == v.ID {
+				if strings.Contains(v.ID, d.ID) {
 					unhealthy <- v
 				}
 			}
@@ -112,7 +111,7 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, vDevices []*plugina
 		if ret != nvml.SUCCESS {
 			klog.Infof("Marking device %v as unhealthy: %v", d.ID, ret)
 			for _, v := range vDevices {
-				if d.ID == v.ID {
+				if strings.Contains(v.ID, d.ID) {
 					unhealthy <- v
 				}
 			}
@@ -134,7 +133,7 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, vDevices []*plugina
 			klog.Infof("Error waiting for event: %v; Marking all devices as unhealthy", ret)
 			for _, d := range devices {
 				for _, v := range vDevices {
-					if d.ID == v.ID {
+					if strings.Contains(v.ID, d.ID) {
 						unhealthy <- v
 					}
 				}
@@ -158,7 +157,7 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, vDevices []*plugina
 			klog.Infof("Failed to determine uuid for event %v: %v; Marking all devices as unhealthy.", e, ret)
 			for _, d := range devices {
 				for _, v := range vDevices {
-					if d.ID == v.ID {
+					if strings.Contains(v.ID, d.ID) {
 						unhealthy <- v
 					}
 				}
@@ -174,7 +173,7 @@ func (mgr *NvmlManager) checkHealth(stop <-chan interface{}, vDevices []*plugina
 
 		klog.Infof("XidCriticalError: Xid=%d on Device=%s; marking device as unhealthy.", e.EventData, d.ID)
 		for _, v := range vDevices {
-			if d.ID == v.ID {
+			if strings.Contains(v.ID, d.ID) {
 				unhealthy <- v
 			}
 		}
